@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>4인 협동 미로 탈출</title>
+<style>
+  :root { --bg:#F4F1EA; --ink:#2B2D42; --panel:#FFFFFF; --muted:#8A8C9E; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; overflow:hidden; background:var(--bg); color:var(--ink);
+    font-family:"Pretendard","Noto Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif; }
+  canvas { display:block; width:100vw; height:100vh; }
+
+  #settings { position:fixed; right:16px; bottom:16px; width:min(420px, calc(100vw - 32px)); max-height:calc(100vh - 32px); overflow:auto;
+    background:var(--panel); border-radius:14px; box-shadow:0 10px 40px rgba(0,0,0,.18); padding:18px 20px; font-size:14px; display:none; }
+  #settings.open { display:block; }
+  #settings .head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  #settings h3 { margin:0; font-size:16px; }
+  #settings #closeSettings { width:34px; height:34px; padding:0; margin:0; border-radius:50%; background:#F0EDE6; color:var(--ink); font-size:16px; line-height:34px; }
+  #settings #closeSettings:hover { background:#E2DFD7; }
+  #settings label { display:flex; align-items:center; gap:8px; margin:8px 0; }
+  #settings select { flex:1; font:inherit; padding:4px; }
+  #settings button { border:0; background:var(--ink); color:#fff; border-radius:8px; padding:8px 12px; cursor:pointer; font:inherit; margin:4px 4px 4px 0; }
+  #settings .hint { color:var(--muted); font-size:12px; line-height:1.6; }
+  #gear { position:fixed; right:14px; bottom:14px; width:40px; height:40px; border-radius:50%; border:0; background:rgba(43,45,66,.08);
+    color:var(--ink); font-size:20px; cursor:pointer; opacity:.45; }
+  #gear:hover { opacity:1; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<button id="gear" title="설정 (Tab)">⚙</button>
+<div id="settings">
+  <div class="head"><h3>설정</h3><button id="closeSettings" title="닫기 (Esc)" aria-label="닫기">✕</button></div>
+  <label>QR 주소 <select id="ipSel"></select></label>
+  <div class="hint">'인터넷'은 Wi-Fi 없이 LTE/5G로도 접속돼요 (PC에 인터넷 필요). 인터넷이 안 되는 곳에서는 '같은 Wi-Fi'를 고르고 폰을 PC와 같은 Wi-Fi에 연결하세요.</div>
+  <label><input type="checkbox" id="sound" checked> 효과음</label>
+  <div style="margin-top:8px">
+    <button id="resetSlots">자리 배정 초기화 (R)</button>
+    <button id="toLobby">처음 화면으로 (Esc)</button>
+    <button id="fullscreen">전체 화면 (F)</button>
+  </div>
+  <div style="margin-top:12px; padding-top:12px; border-top:1px solid #EEE">
+    <button id="quitBtn" style="background:#E04848">게임 종료</button>
+    <span class="hint" id="quitHint">서버와 인터넷 터널을 모두 꺼요</span>
+  </div>
+  <div class="hint" style="margin-top:10px">
+    키보드 테스트: 방향키 또는 WASD = 각 담당자의 드래그 · Enter = 바로 시작 · N = 다음 스테이지로 건너뛰기
+  </div>
+</div>
+<script src="vendor/qrcode.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

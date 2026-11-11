@@ -1,0 +1,9 @@
+# Cloudflare 터널 프로그램 (용량이 크고 공식 배포처에서 받아야 함 → README 참고)
+tools/cloudflared.exe
+tools/cloudflared
+
+# 기타
+node_modules/
+*.log
+.DS_Store
+Thumbs.db

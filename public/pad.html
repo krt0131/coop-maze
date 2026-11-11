@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#2B2D42">
+<title>미로 조작기</title>
+<style>
+  :root { --bg:#F4F1EA; --ink:#2B2D42; --muted:#8A8C9E; --c:#2B2D42; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; -webkit-user-select:none; user-select:none; }
+  html, body { margin:0; height:100%; overflow:hidden; overscroll-behavior:none; background:var(--bg); color:var(--ink);
+    font-family:"Pretendard","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif; }
+  .screen { position:fixed; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; padding:24px 16px; }
+  .screen.on { display:flex; }
+
+  /* 방향 선택 */
+  #choose h1 { font-size:24px; margin:0 0 6px; text-align:center; }
+  #choose p { margin:0 0 28px; color:var(--muted); font-size:15px; text-align:center; }
+  .cross { display:grid; grid-template-columns:repeat(3, min(26vw,120px)); grid-template-rows:repeat(3, min(26vw,120px)); gap:12px; }
+  .pick { border:0; border-radius:22px; font:inherit; color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 6px 0 rgba(0,0,0,.15); transition:transform .1s; }
+  .pick:active { transform:translateY(3px); box-shadow:0 3px 0 rgba(0,0,0,.15); }
+  .pick .ar { font-size:40px; line-height:1; margin-bottom:4px; }
+  .pick.taken { background:#D9D7D0 !important; color:#9A988F; box-shadow:none; pointer-events:none; }
+  .pick.taken .who { display:block; }
+  .who { display:none; font-size:12px; font-weight:500; }
+  .p-up { grid-column:2; grid-row:1; background:#FF6B6B; }
+  .p-left { grid-column:1; grid-row:2; background:#7C6CF2; }
+  .p-right { grid-column:3; grid-row:2; background:#FFB547; }
+  .p-down { grid-column:2; grid-row:3; background:#2EC4B6; }
+  .center { grid-column:2; grid-row:2; display:flex; align-items:center; justify-content:center; font-size:13px; color:var(--muted); text-align:center; white-space:pre-line; }
+
+  /* 조작 화면 */
+  #pad { background:var(--c); color:#fff; touch-action:none; justify-content:space-between; }
+  #pad .top { text-align:center; padding-top:env(safe-area-inset-top); }
+  #pad .role { font-size:15px; opacity:.85; letter-spacing:.02em; }
+  #pad .status { margin-top:6px; font-size:14px; background:rgba(0,0,0,.18); padding:6px 14px; border-radius:99px; display:inline-block; }
+  #pad .mid { display:flex; flex-direction:column; align-items:center; gap:16px; pointer-events:none; }
+  #bigArrow { font-size:min(46vw,260px); line-height:1; font-weight:800; transition:transform .12s ease-out; text-shadow:0 8px 0 rgba(0,0,0,.12); }
+  #pad .guide { font-size:20px; font-weight:700; }
+  #msg { font-size:15px; min-height:22px; opacity:.95; }
+  #pad .bottom { padding-bottom:env(safe-area-inset-bottom); display:flex; flex-direction:column; align-items:center; gap:12px; width:100%; }
+  #startBtn { display:none; border:0; background:#fff; color:var(--c); font:inherit; font-size:20px; font-weight:800; padding:14px 0; width:min(80vw,320px);
+    border-radius:18px; box-shadow:0 6px 0 rgba(0,0,0,.15); }
+  #startBtn:active { transform:translateY(3px); box-shadow:0 3px 0 rgba(0,0,0,.15); }
+  #startBtn small { display:block; font-size:12px; font-weight:600; color:#8A8C9E; margin-top:4px; }
+  #startBtn.on { display:block; }
+  #change { border:0; background:rgba(255,255,255,.2); color:#fff; font:inherit; font-size:13px; padding:8px 14px; border-radius:99px; }
+  .shake { animation:shake .3s; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-14px)} 40%{transform:translateX(12px)} 60%{transform:translateX(-8px)} 80%{transform:translateX(5px)} }
+
+  #offline { position:fixed; left:12px; right:12px; top:12px; background:#2B2D42; color:#fff; padding:10px 14px; border-radius:12px;
+    font-size:14px; text-align:center; display:none; z-index:10; }
+</style>
+</head>
+<body>
+<div id="offline">게임 화면과 연결 중… 같은 Wi-Fi인지 확인해 주세요</div>
+
+<section id="choose" class="screen on">
+  <h1>어느 방향을 맡을까요?</h1>
+  <p>캐릭터를 그 방향으로만 움직일 수 있어요</p>
+  <div class="cross">
+    <button class="pick p-up" data-dir="up"><span class="ar">↑</span>위<span class="who">사용 중</span></button>
+    <button class="pick p-left" data-dir="left"><span class="ar">←</span>왼쪽<span class="who">사용 중</span></button>
+    <div class="center" id="freeCount"></div>
+    <button class="pick p-right" data-dir="right"><span class="ar">→</span>오른쪽<span class="who">사용 중</span></button>
+    <button class="pick p-down" data-dir="down"><span class="ar">↓</span>아래<span class="who">사용 중</span></button>
+  </div>
+</section>
+
+<section id="pad" class="screen">
+  <div class="top">
+    <div class="role" id="role"></div>
+    <div class="status" id="status">친구들을 기다리는 중</div>
+  </div>
+  <div class="mid">
+    <div id="bigArrow">↑</div>
+    <div class="guide" id="guide"></div>
+    <div id="msg"></div>
+  </div>
+  <div class="bottom">
+    <button id="startBtn">지금 시작<small id="startSub"></small></button>
+    <button id="change">방향 바꾸기</button>
+  </div>
+</section>
+
+<script>
+const INFO = {
+  up:    { label:'위', to:'위로', arrow:'↑', color:'#FF6B6B', dx:0,  dy:-1 },
+  right: { label:'오른쪽', to:'오른쪽으로', arrow:'→', color:'#FFB547', dx:1,  dy:0 },
+  down:  { label:'아래', to:'아래로', arrow:'↓', color:'#2EC4B6', dx:0,  dy:1 },
+  left:  { label:'왼쪽', to:'왼쪽으로', arrow:'←', color:'#7C6CF2', dx:-1, dy:0 },
+};
+const PHASE_TEXT = {
+  lobby: '친구들을 기다리는 중 (4명이면 자동 시작)',
+  countdown: '곧 시작해요!',
+  play: '게임 중! 화면을 보며 협동하세요',
+  clear: '스테이지 클리어!',
+  result: '탈출 성공! 🎉',
+};
+
+let pid = null;
+try { pid = localStorage.getItem('maze-pid'); } catch (e) {}
+if (!pid) {
+  pid = Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+  try { localStorage.setItem('maze-pid', pid); } catch (e) {}
+}
+
+let myDir = null;
+let slots = { up:null, right:null, down:null, left:null };
+let phase = 'lobby';
+
+const $ = id => document.getElementById(id);
+
+function post(path, body) {
+  return fetch(path, { method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(body), keepalive:true })
+    .then(r => r.json().catch(() => ({}))).catch(() => ({ ok:false, net:true }));
+}
+
+function show(id) {
+  for (const s of document.querySelectorAll('.screen')) s.classList.toggle('on', s.id === id);
+}
+
+function renderChoose() {
+  let free = 0;
+  for (const b of document.querySelectorAll('.pick')) {
+    const d = b.dataset.dir;
+    const taken = slots[d] && slots[d] !== pid;
+    b.classList.toggle('taken', !!taken);
+    if (!taken) free++;
+  }
+  $('freeCount').textContent = free ? `남은 자리\n${free}개` : '자리가\n꽉 찼어요';
+}
+
+function renderPad() {
+  const i = INFO[myDir];
+  document.documentElement.style.setProperty('--c', i.color);
+  document.querySelector('meta[name=theme-color]').content = i.color;
+  $('role').textContent = `나는 ${i.label} 담당`;
+  $('bigArrow').textContent = i.arrow;
+  $('guide').textContent = `화면을 ${i.to} 쓱 밀어요`;
+  $('status').textContent = PHASE_TEXT[phase] || '';
+  // 대기 중이고 4명이 다 안 모였으면 '지금 시작' 버튼 표시
+  const joined = Object.values(slots).filter(Boolean).length;
+  const canStart = (phase === 'lobby' && joined < 4) || phase === 'result';
+  $('startBtn').classList.toggle('on', canStart);
+  $('startBtn').firstChild.textContent = phase === 'result' ? '다시 도전' : '지금 시작';
+  $('startSub').textContent = joined < 4 ? `빈 자리 ${4 - joined}개는 🤖 도우미가 맡아요` : '';
+}
+
+$('startBtn').addEventListener('click', async () => {
+  buzz(30);
+  const r = await post('/start', { pid });
+  if (r.reason === 'noslot') setMine(null);
+});
+
+function setMine(dir) {
+  myDir = dir;
+  if (dir) { renderPad(); show('pad'); }
+  else { renderChoose(); show('choose'); }
+}
+
+for (const b of document.querySelectorAll('.pick')) {
+  b.addEventListener('click', async () => {
+    const r = await post('/join', { pid, dir: b.dataset.dir });
+    if (r.ok) { buzz(20); setMine(r.dir); }
+    else if (r.reason === 'taken') { b.classList.add('shake'); setTimeout(() => b.classList.remove('shake'), 300); }
+  });
+}
+
+$('change').addEventListener('click', async () => {
+  await post('/leave', { pid });
+  setMine(null);
+});
+
+// ---------- 드래그 판정 (폰에서 직접) ----------
+let start = null, fired = false;
+const pad = $('pad');
+const threshold = () => Math.max(28, Math.min(innerWidth, innerHeight) * 0.08);
+
+pad.addEventListener('pointerdown', e => {
+  if (e.target.closest('button')) return;
+  start = { x: e.clientX, y: e.clientY };
+  fired = false;
+  try { pad.setPointerCapture(e.pointerId); } catch (err) {}
+});
+pad.addEventListener('pointermove', e => {
+  if (!start || fired) return;
+  const dx = e.clientX - start.x, dy = e.clientY - start.y;
+  if (Math.hypot(dx, dy) < threshold()) return;
+  fired = true;
+  const dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+  onSwipe(dir);
+});
+const end = () => { start = null; };
+pad.addEventListener('pointerup', end);
+pad.addEventListener('pointercancel', end);
+document.addEventListener('touchmove', e => e.preventDefault(), { passive:false });
+document.addEventListener('gesturestart', e => e.preventDefault());
+
+let msgTimer = null;
+function onSwipe(dir) {
+  if (!myDir) return;
+  post('/swipe', { pid, dir }).then(r => { if (r.reason === 'noslot') setMine(null); });
+  const a = $('bigArrow');
+  if (dir === myDir) {
+    const i = INFO[myDir];
+    a.style.transform = `translate(${i.dx * 30}px, ${i.dy * 30}px) scale(1.08)`;
+    setTimeout(() => { a.style.transform = ''; }, 120);
+    buzz(25);
+    setMsg('');
+  } else {
+    a.classList.remove('shake'); void a.offsetWidth; a.classList.add('shake');
+    buzz([30, 40, 30]);
+    setMsg(`나는 ${INFO[myDir].arrow} ${INFO[myDir].to}만 움직일 수 있어요`);
+  }
+}
+function setMsg(t) {
+  $('msg').textContent = t;
+  clearTimeout(msgTimer);
+  if (t) msgTimer = setTimeout(() => { $('msg').textContent = ''; }, 1800);
+}
+function buzz(p) { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} }
+
+// ---------- 서버 상태 받기 ----------
+// 인터넷 터널(Cloudflare)은 실시간 스트림(SSE)을 버퍼링해서 폰에 늦게 도착함.
+// 그래서 폰은 1.5초마다 /ping 으로 상태(자리·게임 단계)를 받아옴. 같은 Wi-Fi에서도 똑같이 동작.
+// (드래그는 별도 요청으로 즉시 전송되므로 반응 속도와는 무관)
+let fails = 0;
+function applyState(r) {
+  slots = r.slots || slots;
+  phase = r.phase || phase;
+  const mine = r.dir || null;
+  if (mine !== myDir) setMine(mine);
+  else if (myDir) renderPad();
+  else renderChoose();
+}
+async function poll() {
+  const r = await post('/ping', { pid });
+  if (r.ok) {
+    fails = 0;
+    $('offline').style.display = 'none';
+    applyState(r);
+  } else if (++fails >= 2) {
+    $('offline').style.display = 'block';
+  }
+  setTimeout(poll, 1500);
+}
+poll();
+</script>
+</body>
+</html>
