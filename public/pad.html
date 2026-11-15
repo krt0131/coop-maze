@@ -36,15 +36,37 @@
   #pad .role { font-size:15px; opacity:.85; letter-spacing:.02em; }
   #pad .status { margin-top:6px; font-size:14px; background:rgba(0,0,0,.18); padding:6px 14px; border-radius:99px; display:inline-block; }
   #pad .mid { display:flex; flex-direction:column; align-items:center; gap:16px; pointer-events:none; }
-  #bigArrow { font-size:min(46vw,260px); line-height:1; font-weight:800; transition:transform .12s ease-out; text-shadow:0 8px 0 rgba(0,0,0,.12); }
+  #bigArrow { font-size:min(46vw,260px,22vh); line-height:1; font-weight:800; transition:transform .12s ease-out; text-shadow:0 8px 0 rgba(0,0,0,.12); }
   #pad .guide { font-size:20px; font-weight:700; }
   #msg { font-size:15px; min-height:22px; opacity:.95; }
   #pad .bottom { padding-bottom:env(safe-area-inset-bottom); display:flex; flex-direction:column; align-items:center; gap:12px; width:100%; }
+  #pokeRow { display:flex; align-items:center; gap:10px; }
+  #pokeRow .lbl { font-size:13px; font-weight:700; opacity:.9; }
+  .pk { width:52px; height:52px; border:0; border-radius:50%; background:#fff; font:inherit; font-size:26px; font-weight:900; line-height:1;
+    box-shadow:0 4px 0 rgba(0,0,0,.15); display:flex; align-items:center; justify-content:center; }
+  .pk:active { transform:translateY(2px); box-shadow:0 2px 0 rgba(0,0,0,.15); }
+  .pk.bot { opacity:.45; }
+  .pk.hit { animation:shake .3s; }
+  #poked { position:fixed; inset:0; display:none; align-items:center; justify-content:center; flex-direction:column; gap:8px;
+    background:rgba(255,255,255,.92); color:#2B2D42; font-size:30px; font-weight:900; text-align:center; z-index:20; pointer-events:none; }
+  #poked.on { display:flex; animation:pokeIn .25s; }
+  #poked small { font-size:16px; font-weight:700; color:#8A8C9E; }
+  @keyframes pokeIn { 0%{transform:scale(1.15);opacity:0} 100%{transform:scale(1);opacity:1} }
+  #modeSel { display:none; background:rgba(0,0,0,.2); border-radius:16px; padding:4px; gap:4px; width:min(80vw,320px); }
+  #modeSel.on { display:flex; }
+  #modeSel button { flex:1; border:0; background:transparent; color:#fff; font:inherit; font-size:16px; font-weight:800; padding:10px 0; border-radius:12px; }
+  #modeSel button.sel { background:#fff; color:var(--c); box-shadow:0 3px 0 rgba(0,0,0,.15); }
+  #modeHint { font-size:12px; opacity:.85; text-align:center; min-height:16px; }
   #startBtn { display:none; border:0; background:#fff; color:var(--c); font:inherit; font-size:20px; font-weight:800; padding:14px 0; width:min(80vw,320px);
     border-radius:18px; box-shadow:0 6px 0 rgba(0,0,0,.15); }
   #startBtn:active { transform:translateY(3px); box-shadow:0 3px 0 rgba(0,0,0,.15); }
   #startBtn small { display:block; font-size:12px; font-weight:600; color:#8A8C9E; margin-top:4px; }
   #startBtn.on { display:block; }
+  #meter { position:relative; width:min(70vw,280px); height:14px; border-radius:99px; background:rgba(0,0,0,.2); overflow:hidden; }
+  #meterFill { height:100%; width:0; background:rgba(255,255,255,.85); border-radius:99px; }
+  #meterLine { position:absolute; top:-2px; bottom:-2px; width:3px; background:#fff; box-shadow:0 0 0 2px rgba(0,0,0,.25); }
+  #motionBtn { display:none; border:0; background:rgba(255,255,255,.92); color:var(--c); font:inherit; font-size:16px; font-weight:800; padding:10px 18px; border-radius:99px; }
+  #motionBtn.on { display:block; }
   #change { border:0; background:rgba(255,255,255,.2); color:#fff; font:inherit; font-size:13px; padding:8px 14px; border-radius:99px; }
   .shake { animation:shake .3s; }
   @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-14px)} 40%{transform:translateX(12px)} 60%{transform:translateX(-8px)} 80%{transform:translateX(5px)} }
@@ -54,6 +76,7 @@
 </style>
 </head>
 <body>
+<div id="poked"></div>
 <div id="offline">게임 화면과 연결 중… 같은 Wi-Fi인지 확인해 주세요</div>
 
 <section id="choose" class="screen on">
@@ -77,8 +100,13 @@
     <div id="bigArrow">↑</div>
     <div class="guide" id="guide"></div>
     <div id="msg"></div>
+    <div id="meter"><div id="meterFill"></div><div id="meterLine"></div></div>
   </div>
   <div class="bottom">
+    <div id="pokeRow"><span class="lbl">콕 찌르기</span></div>
+    <button id="motionBtn">📳 흔들기 켜기</button>
+    <div id="modeSel"><button data-mode="normal">일반전</button><button data-mode="item">🎁 아이템전</button></div>
+    <div id="modeHint"></div>
     <button id="startBtn">지금 시작<small id="startSub"></small></button>
     <button id="change">방향 바꾸기</button>
   </div>
@@ -109,6 +137,7 @@ if (!pid) {
 let myDir = null;
 let slots = { up:null, right:null, down:null, left:null };
 let phase = 'lobby';
+let mode = 'normal'; // 'normal' 일반전 | 'item' 아이템전
 
 const $ = id => document.getElementById(id);
 
@@ -138,14 +167,66 @@ function renderPad() {
   document.querySelector('meta[name=theme-color]').content = i.color;
   $('role').textContent = `나는 ${i.label} 담당`;
   $('bigArrow').textContent = i.arrow;
-  $('guide').textContent = `화면을 ${i.to} 쓱 밀어요`;
+  $('guide').textContent = motionSeen ? '폰을 흔들면 한 칸 이동!' : `화면을 ${i.to} 쓱 밀어요`;
+  $('motionBtn').classList.toggle('on', !motionSeen);
   $('status').textContent = PHASE_TEXT[phase] || '';
   // 대기 중이고 4명이 다 안 모였으면 '지금 시작' 버튼 표시
   const joined = Object.values(slots).filter(Boolean).length;
   const canStart = (phase === 'lobby' && joined < 4) || phase === 'result';
   $('startBtn').classList.toggle('on', canStart);
   $('startBtn').firstChild.textContent = phase === 'result' ? '다시 도전' : '지금 시작';
+  renderPoke();
   $('startSub').textContent = joined < 4 ? `빈 자리 ${4 - joined}개는 🤖 도우미가 맡아요` : '';
+  // 모드 선택: 대기·결과 화면에서만
+  const canMode = phase === 'lobby' || phase === 'result';
+  $('modeSel').classList.toggle('on', canMode);
+  for (const b of $('modeSel').children) b.classList.toggle('sel', b.dataset.mode === mode);
+  $('modeHint').textContent = canMode
+    ? (mode === 'item' ? '⭐ -4초 · ⏳ 2초 정지 · 🚀 5칸 부스트 — 들렀다 갈까?' : '')
+    : (mode === 'item' ? '🎁 아이템전 진행 중' : '');
+}
+
+for (const b of $('modeSel').children) {
+  b.addEventListener('click', async () => {
+    if (b.dataset.mode === mode) return;
+    buzz(15);
+    mode = b.dataset.mode; renderPad(); // 바로 반영, 서버 응답으로 확정
+    const r = await post('/mode', { pid, mode: b.dataset.mode });
+    if (r.mode) { mode = r.mode; renderPad(); }
+  });
+}
+
+// ---------- 콕 찌르기: 다른 방향 담당에게 "네 차례야!" ----------
+function renderPoke() {
+  const row = $('pokeRow');
+  const others = ['up', 'right', 'down', 'left'].filter(d => d !== myDir);
+  const sig = others.map(d => d + (slots[d] ? 1 : 0)).join();
+  if (row.dataset.sig === sig) return;
+  row.dataset.sig = sig;
+  row.querySelectorAll('.pk').forEach(b => b.remove());
+  for (const d of others) {
+    const b = document.createElement('button');
+    b.className = 'pk' + (slots[d] ? '' : ' bot');
+    b.textContent = INFO[d].arrow; b.style.color = INFO[d].color;
+    b.addEventListener('click', async () => {
+      buzz(15);
+      b.classList.remove('hit'); void b.offsetWidth; b.classList.add('hit');
+      const r = await post('/poke', { pid, to: d });
+      if (r.ok) setMsg(r.bot ? `🤖 ${INFO[d].label} 도우미는 알아서 움직여요` : `${INFO[d].arrow} ${INFO[d].label} 담당을 콕! 찔렀어요`);
+    });
+    row.appendChild(b);
+  }
+}
+let pokedTimer = null;
+function showPoked(from) {
+  const i = INFO[from];
+  if (!i) return;
+  buzz([120, 80, 120, 80, 160]);
+  const el = $('poked');
+  el.innerHTML = `<div style="font-size:64px;color:${i.color}">${i.arrow}</div>콕! 네 차례야!<small>${i.label} 담당이 찔렀어요</small>`;
+  el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
+  clearTimeout(pokedTimer);
+  pokedTimer = setTimeout(() => el.classList.remove('on'), 1600);
 }
 
 $('startBtn').addEventListener('click', async () => {
@@ -162,6 +243,7 @@ function setMine(dir) {
 
 for (const b of document.querySelectorAll('.pick')) {
   b.addEventListener('click', async () => {
+    enableMotion(); // iPhone은 버튼을 누른 그 순간에 센서 권한을 물어야 해서 맨 먼저 호출
     const r = await post('/join', { pid, dir: b.dataset.dir });
     if (r.ok) { buzz(20); setMine(r.dir); }
     else if (r.reason === 'taken') { b.classList.add('shake'); setTimeout(() => b.classList.remove('shake'), 300); }
@@ -198,6 +280,71 @@ pad.addEventListener('pointercancel', end);
 document.addEventListener('touchmove', e => e.preventDefault(), { passive:false });
 document.addEventListener('gesturestart', e => e.preventDefault());
 
+// ---------- 흔들기 판정 (방향 상관없이 흔들면 내 방향으로 1칸) ----------
+// 세게 흔들면 1칸. 다음 흔들기는 '세기가 절반 아래로 떨어지거나' '일정 시간이 지나면' 다시 받음
+// (예전엔 거의 멈춰야 재장전돼서, 계속 흔드는 동안엔 인식이 끊기는 문제가 있었음)
+const SHAKE_FORCE = 18;     // m/s² — 이보다 세게 흔들어야 1칸 (걷기·손떨림은 보통 3~5, 가볍게 흔들기 10 안팎)
+const SHAKE_REARM = 9;      // m/s² — 이 아래로 내려오면 다음 흔들기 준비
+const SHAKE_REARM_MS = 450; // ms — 세기가 안 내려와도 이 시간이 지나면 다음 흔들기 준비
+const SHAKE_MIN_GAP = 280;  // ms — 한 번 흔들기의 왕복이 두 칸이 되지 않게
+let motionOn = false, motionSeen = false, lastShake = 0, armed = true;
+let gx = 0, gy = 0, gz = 0, gInit = false;
+
+async function enableMotion() {
+  if (typeof DeviceMotionEvent === 'undefined') return false;
+  if (typeof DeviceMotionEvent.requestPermission === 'function') { // iOS 13+
+    try { if (await DeviceMotionEvent.requestPermission() !== 'granted') { setMsg('센서가 꺼져 있어요. 화면을 밀어서 움직여요'); return false; } }
+    catch (e) { return false; }
+  }
+  if (!motionOn) { addEventListener('devicemotion', onMotion); motionOn = true; }
+  return true;
+}
+
+function onMotion(e) {
+  let x, y, z;
+  const a = e.acceleration;
+  if (a && a.x != null) { x = a.x; y = a.y; z = a.z; }
+  else {
+    // 중력 제외 값이 없는 폰: 중력 성분을 천천히 따라가며 빼기
+    const g = e.accelerationIncludingGravity;
+    if (!g || g.x == null) return;
+    if (!gInit) { gx = g.x; gy = g.y; gz = g.z; gInit = true; }
+    gx = gx * 0.9 + g.x * 0.1; gy = gy * 0.9 + g.y * 0.1; gz = gz * 0.9 + g.z * 0.1;
+    x = g.x - gx; y = g.y - gy; z = g.z - gz;
+  }
+  if (!motionSeen) { motionSeen = true; if (myDir) renderPad(); }
+  if (!myDir) return;
+  const now = performance.now();
+  const m = Math.hypot(x, y, z);
+  meterPeak = Math.max(meterPeak, m);
+  if (!armed && ((m < SHAKE_REARM && now - lastShake > 120) || now - lastShake > SHAKE_REARM_MS)) armed = true;
+  if (armed && m > SHAKE_FORCE && now - lastShake > SHAKE_MIN_GAP) {
+    armed = false;
+    lastShake = now;
+    onSwipe(myDir);
+    flash();
+  }
+}
+
+// 흔들기 세기 막대: 흰 선(기준)을 넘기면 1칸
+let meterPeak = 0;
+(function meterLoop() {
+  const fill = $('meterFill');
+  if (fill) fill.style.width = Math.min(100, meterPeak / (SHAKE_FORCE * 1.6) * 100) + '%';
+  meterPeak *= 0.88;
+  requestAnimationFrame(meterLoop);
+})();
+$('meterLine').style.left = (100 / 1.6) + '%';
+
+// 흔들 때마다 화면이 번쩍 — 인식됐다는 걸 바로 느끼게
+function flash() {
+  pad.style.transition = 'none'; pad.style.filter = 'brightness(1.35)';
+  requestAnimationFrame(() => { pad.style.transition = 'filter .18s'; pad.style.filter = ''; });
+}
+
+$('motionBtn').addEventListener('click', () => { enableMotion(); });
+enableMotion(); // 안드로이드는 권한 없이 바로 켜짐
+
 let msgTimer = null;
 function onSwipe(dir) {
   if (!myDir) return;
@@ -224,12 +371,14 @@ function buzz(p) { try { navigator.vibrate && navigator.vibrate(p); } catch (e) 
 
 // ---------- 서버 상태 받기 ----------
 // 인터넷 터널(Cloudflare)은 실시간 스트림(SSE)을 버퍼링해서 폰에 늦게 도착함.
-// 그래서 폰은 1.5초마다 /ping 으로 상태(자리·게임 단계)를 받아옴. 같은 Wi-Fi에서도 똑같이 동작.
+// 그래서 폰은 1초마다 /ping 으로 상태(자리·게임 단계)를 받아옴. 같은 Wi-Fi에서도 똑같이 동작.
 // (드래그는 별도 요청으로 즉시 전송되므로 반응 속도와는 무관)
 let fails = 0;
 function applyState(r) {
   slots = r.slots || slots;
   phase = r.phase || phase;
+  mode = r.mode || mode;
+  if (r.poke && r.poke.from) showPoked(r.poke.from);
   const mine = r.dir || null;
   if (mine !== myDir) setMine(mine);
   else if (myDir) renderPad();
@@ -244,7 +393,7 @@ async function poll() {
   } else if (++fails >= 2) {
     $('offline').style.display = 'block';
   }
-  setTimeout(poll, 1500);
+  setTimeout(poll, 1000);
 }
 poll();
 </script>

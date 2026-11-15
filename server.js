@@ -17,7 +17,11 @@ const DIRS = ['up', 'right', 'down', 'left'];
 const slots = { up: null, right: null, down: null, left: null }; // dir -> pid
 const lastSeen = new Map(); // pid -> time
 let phase = 'lobby'; // 게임 화면이 알려주는 현재 단계 (폰 표시용)
+let mode = 'normal'; // 'normal' 일반전 | 'item' 아이템전 — 폰(참가자)이 대기/결과 화면에서 고름
 const clients = new Set();
+// 콕 찌르기: 찔린 방향 → { from }. 폰은 /ping 응답으로 받아 감 (터널이 SSE를 버퍼링해서)
+const pokes = new Map();
+const lastPoke = new Map(); // pid → 마지막으로 찌른 시각 (연타 방지)
 
 // ---------- 인터넷 터널 (Cloudflare 무료 임시 터널) ----------
 // tools/cloudflared.exe 가 있으면 자동 실행 → https://xxxx.trycloudflare.com 주소를 받아
@@ -78,7 +82,7 @@ function isLocalAdmin(req) {
 
 function send(res, obj) { res.write(`data: ${JSON.stringify(obj)}\n\n`); }
 function broadcast(obj) { for (const c of clients) send(c, obj); }
-function slotsMsg() { return { t: 'slots', slots, phase }; }
+function slotsMsg() { return { t: 'slots', slots, phase, mode }; }
 function slotOf(pid) { return DIRS.find(d => slots[d] === pid) || null; }
 
 function release(pid) {
@@ -190,7 +194,10 @@ const server = http.createServer((req, res) => {
       if (p === '/ping') {
         if (pid) lastSeen.set(pid, Date.now());
         // 폰은 SSE 대신 이 응답으로 상태를 받음 (인터넷 터널은 SSE를 버퍼링해서)
-        return json(res, 200, { ok: true, dir: pid ? slotOf(pid) : null, slots, phase });
+        const me = pid ? slotOf(pid) : null;
+        let poke = null;
+        if (me && pokes.has(me)) { poke = pokes.get(me); pokes.delete(me); if (Date.now() - poke.at > 6000) poke = null; }
+        return json(res, 200, { ok: true, dir: me, slots, phase, mode, poke: poke && { from: poke.from } });
       }
 
       // 폰의 '지금 시작' 버튼 (빈 자리는 게임 화면의 도우미 봇이 맡음)
@@ -200,6 +207,28 @@ const server = http.createServer((req, res) => {
         if (phase !== 'lobby' && phase !== 'result') return json(res, 200, { ok: false, reason: 'playing' });
         broadcast({ t: 'start', by: slotOf(pid) });
         return json(res, 200, { ok: true });
+      }
+
+      // 모드 바꾸기 (일반전/아이템전): 참가자 폰 또는 이 PC의 게임 화면(M키), 게임 중엔 불가
+      if (p === '/mode') {
+        if (pid) lastSeen.set(pid, Date.now());
+        if (!(pid && slotOf(pid)) && !isLocalAdmin(req)) return json(res, 200, { ok: false, reason: 'noslot' });
+        if (m.mode !== 'normal' && m.mode !== 'item') return json(res, 400, { ok: false });
+        if (phase !== 'lobby' && phase !== 'result') return json(res, 200, { ok: false, reason: 'playing', mode });
+        if (mode !== m.mode) { mode = m.mode; console.log(`[모드] ${mode === 'item' ? '아이템전' : '일반전'}`); broadcast(slotsMsg()); }
+        return json(res, 200, { ok: true, mode });
+      }
+
+      // 콕 찌르기: 다른 방향 담당 폰을 진동시키고 게임 화면 카드도 흔들기
+      if (p === '/poke') {
+        if (pid) lastSeen.set(pid, Date.now());
+        const me = pid ? slotOf(pid) : null;
+        if (!me || !DIRS.includes(m.to) || m.to === me) return json(res, 200, { ok: false });
+        if (Date.now() - (lastPoke.get(pid) || 0) < 700) return json(res, 200, { ok: false, reason: 'tooFast' });
+        lastPoke.set(pid, Date.now());
+        if (slots[m.to]) pokes.set(m.to, { from: me, at: Date.now() });
+        broadcast({ t: 'poke', from: me, to: m.to });
+        return json(res, 200, { ok: true, bot: !slots[m.to] });
       }
 
       if (p === '/leave') {
