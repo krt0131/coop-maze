@@ -39,15 +39,16 @@ const P = {
   left:  { label: '왼쪽',   arrow: '←', color: '#7C6CF2', dx: -1, dy: 0,  note: 523 },
 };
 const C = {
-  bg: '#F4F1EA', ink: '#2B2D42', muted: '#8A8C9E', floor: '#FFFDF8',
-  wall: '#34374F', wallShade: '#1F2133', exit: '#3DDC84', panel: '#FFFFFF',
+  bg: '#F4F1EA', ink: '#2B2D42', muted: '#6E7287', floor: '#FFFDF8', line: '#ECE8DF',
+  wall: '#34374F', wallShade: '#1F2133', exit: '#22B573', panel: '#FFFFFF',
 };
 // 아이템전 아이템: detour = 최단 경로에서 벗어났다 돌아오는 데 드는 추가 칸수(왕복)
 const ITEM = {
-  star:  { icon: '⭐', color: '#FFC83D', label: '-4초',     detour: 4 },
-  glass: { icon: '⏳', color: '#5B9BFF', label: '2초 정지', detour: 2 },
-  boost: { icon: '🚀', color: '#FF7A45', label: '5칸 부스트', detour: 2 },
+  star:  { icon: '⭐', color: '#FFC83D', ink: '#B87A00', name: '별',     desc: '기록 -4초',       short: '기록 -4초',  label: '-4초',     detour: 4 },
+  glass: { icon: '⏳', color: '#5B9BFF', ink: '#2F6FD6', name: '모래시계', desc: '타이머 2초 정지', short: '타이머 정지', label: '2초 정지', detour: 2 },
+  boost: { icon: '🚀', color: '#FF7A45', ink: '#D9541E', name: '로켓',   desc: '출구 쪽 5칸 질주', short: '5칸 질주',  label: '5칸 부스트', detour: 2 },
 };
+const ITEM_KEYS = ['star', 'glass', 'boost'];
 const ITEM_COUNT = [1, 2, 3]; // 쉬움/보통/어려움 스테이지당 아이템 수
 const BOOST_STEPS = 5, BOOST_MS = 75; // 부스트: 출구 쪽으로 5칸 자동 질주, 한 칸 75ms
 const ITEM_MIN_EXIT = 6;
@@ -608,6 +609,7 @@ function checkExit() {
   return true;
 }
 
+let itemToast = null, legendFlash = {}, itemRings = [];
 function popup(x, y, str, color) { popups.push({ x, y, str, color, t0: now() }); }
 
 function pickItem(x, y) {
@@ -617,16 +619,19 @@ function pickItem(x, y) {
   runItems.count++;
   if (botTarget === it) botTarget = null;
   const t = now(), I = ITEM[it.type];
+  itemToast = { type: it.type, t0: t };
+  legendFlash[it.type] = t;
+  itemRings.push({ x, y, color: I.color, t0: t });
   if (it.type === 'star') {
     stageBonus += 4000;
-    popup(x, y, '⭐ -4초!', I.color); sfx.star();
+    sfx.star();
   } else if (it.type === 'glass') {
     const last = freezes[freezes.length - 1];
     if (last && t < last[1]) last[1] += 2000; else freezes.push([t, t + 2000]);
-    popup(x, y, '⏳ 시간 정지 2초', I.color); sfx.freeze();
+    sfx.freeze();
   } else {
     // 부스트: 아이템 칸 도착 직후부터 출구 쪽 최단 경로를 따라 5칸 자동 질주 (눈에 보이게 한 칸씩)
-    popup(x, y, '🚀 부스트!', I.color); sfx.boost();
+    sfx.boost();
     char.boost = { left: BOOST_STEPS, next: t + MOVE_MS + 60, i: 0 };
   }
 }
@@ -655,7 +660,7 @@ function boostStep(t) {
 // 서버 이벤트
 function connect() {
   const es = new EventSource('/events');
-  es.onopen = () => { connected = true; post('/phase', { phase: state }); };
+  es.onopen = () => { connected = true; post('/phase', { phase: state }); loadInfo(); }; // 서버를 다시 켜면 터널 주소가 바뀌므로 QR도 새로
   es.onerror = () => { connected = false; };
   es.onmessage = ev => {
     const m = JSON.parse(ev.data);
@@ -818,21 +823,40 @@ function layout() {
   const tbW = clamp(u * 0.34, 180, 520), tbH = clamp(u * 0.085, 48, 120);
   const sW = clamp(u * 0.13, 80, 200), sH = clamp(u * 0.22, 120, 300);
   L = { u, pad, tbW, tbH, sW, sH };
+  const side = pad * 2 + sW;
+  // 아이템전 범례 자리 (왼쪽 아래)
+  {
+    const w = clamp(u * 0.3, 210, 470), ip = u * 0.022, rowH = u * 0.062, headH = u * 0.05;
+    const h = headH + rowH * ITEM_KEYS.length + ip * 0.8;
+    L.leg = { x: pad, y: H - pad - h, w, h, ip, rowH, headH };
+  }
   L.card = {
     up:    { x: W / 2 - tbW / 2, y: pad, w: tbW, h: tbH, vertical: false },
     down:  { x: W / 2 - tbW / 2, y: H - pad - tbH, w: tbW, h: tbH, vertical: false },
     left:  { x: pad, y: H / 2 - sH / 2, w: sW, h: sH, vertical: true },
     right: { x: W - pad - sW, y: H / 2 - sH / 2, w: sW, h: sH, vertical: true },
   };
-  L.area = { x: pad * 2 + sW, y: pad * 2 + tbH, w: W - (pad * 2 + sW) * 2, h: H - (pad * 2 + tbH) * 2 };
+  L.area = { x: side, y: pad * 2 + tbH, w: W - side * 2, h: H - (pad * 2 + tbH) * 2 };
 }
 addEventListener('resize', layout);
 
 function mazeGeom() {
   const a = L.area;
-  const cs = Math.floor(Math.min(a.w / maze.cols, a.h / maze.rows));
-  const mw = cs * maze.cols, mh = cs * maze.rows;
-  return { cs, ox: Math.round(a.x + (a.w - mw) / 2), oy: Math.round(a.y + (a.h - mh) / 2), mw, mh };
+  let cs = Math.floor(Math.min(a.w / maze.cols, a.h / maze.rows));
+  let mw = cs * maze.cols, mh = cs * maze.rows;
+  let ox = a.x + (a.w - mw) / 2, oy = a.y + (a.h - mh) / 2;
+  // 아이템전: 왼쪽 아래 범례와 겹치면 미로를 위로 올리고, 그래도 겹치면 한 칸씩 줄이기
+  if (runMode === 'item' && state !== 'lobby' && state !== 'result') {
+    const lg = L.leg, gap = L.pad * 0.6;
+    while (cs > 6) {
+      mw = cs * maze.cols; mh = cs * maze.rows;
+      ox = a.x + (a.w - mw) / 2;
+      oy = Math.max(a.y, Math.min(a.y + (a.h - mh) / 2, lg.y - gap - mh));
+      if (ox >= lg.x + lg.w + gap || oy + mh <= lg.y - gap) break;
+      cs--;
+    }
+  }
+  return { cs, ox: Math.round(ox), oy: Math.round(oy), mw, mh };
 }
 
 // ---------------- 그리기 ----------------
@@ -847,9 +871,13 @@ function drawMaze(t) {
   const { cs, ox, oy, mw, mh } = mazeGeom();
   // 바닥
   ctx.save();
-  ctx.shadowColor = 'rgba(43,45,66,.18)'; ctx.shadowBlur = cs * 0.8; ctx.shadowOffsetY = cs * 0.25;
-  rr(ox, oy, mw, mh, cs * 0.35); ctx.fillStyle = C.floor; ctx.fill();
+  ctx.shadowColor = 'rgba(43,45,66,.16)'; ctx.shadowBlur = cs * 0.6; ctx.shadowOffsetY = cs * 0.18;
+  rr(ox, oy, mw, mh, cs * 0.3); ctx.fillStyle = C.wall; ctx.fill();
   ctx.restore();
+  // 미로 바깥 모서리를 둥글게: 이후 바닥·벽은 모두 이 안에만 그림
+  ctx.save();
+  rr(ox, oy, mw, mh, cs * 0.3); ctx.clip();
+  ctx.fillStyle = C.floor; ctx.fillRect(ox, oy, mw, mh);
 
   // 출구
   const ex = ox + maze.exit.x * cs, ey = oy + maze.exit.y * cs;
@@ -890,6 +918,7 @@ function drawMaze(t) {
       x = x2 + 1;
     }
   }
+  ctx.restore();
   return { cs, ox, oy };
 }
 
@@ -905,7 +934,7 @@ function drawGimmicks(t, g) {
     for (const k of maze.ice) {
       const [x, y] = k.split(',').map(Number);
       const px = ox + x * cs, py = oy + y * cs;
-      ctx.fillStyle = '#D6F1FF'; ctx.fillRect(px, py, cs, cs);
+      ctx.fillStyle = '#C9ECFF'; ctx.fillRect(px, py, cs, cs);
       ctx.save();
       ctx.beginPath(); ctx.rect(px, py, cs, cs); ctx.clip();
       ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = Math.max(2, cs * 0.06);
@@ -916,6 +945,8 @@ function drawGimmicks(t, g) {
       ctx.globalAlpha = 0.5;
       ctx.fillStyle = '#fff'; ctx.fillRect(px + sh, py, cs * 0.18, cs);
       ctx.restore();
+      ctx.strokeStyle = '#38BDF8'; ctx.lineWidth = Math.max(2, cs * 0.05);
+      ctx.strokeRect(px + ctx.lineWidth / 2, py + ctx.lineWidth / 2, cs - ctx.lineWidth, cs - ctx.lineWidth);
     }
   }
   // 블랙홀 → 화이트홀 (흐르는 점선으로 방향 표시)
@@ -925,16 +956,16 @@ function drawGimmicks(t, g) {
     const mx = (bx + wx) / 2 - (wy - by) * 0.18, my = (by + wy) / 2 + (wx - bx) * 0.18;
     ctx.save();
     ctx.setLineDash([cs * 0.12, cs * 0.2]); ctx.lineDashOffset = -t / 25;
-    ctx.strokeStyle = h.color; ctx.globalAlpha = 0.35; ctx.lineWidth = Math.max(2, cs * 0.06); ctx.lineCap = 'round';
+    ctx.strokeStyle = h.color; ctx.globalAlpha = 0.6; ctx.lineWidth = Math.max(3, cs * 0.08); ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(bx, by); ctx.quadraticCurveTo(mx, my, wx, wy); ctx.stroke();
     ctx.restore();
     // 화이트홀 쪽 화살촉 (어느 쪽으로 나오는지)
     {
-      const ang = Math.atan2(wy - my, wx - mx), r0 = cs * 0.5, a = cs * 0.2;
+      const ang = Math.atan2(wy - my, wx - mx), r0 = cs * 0.5, a = cs * 0.28;
       const tx = wx - Math.cos(ang) * r0, ty = wy - Math.sin(ang) * r0;
       ctx.save(); ctx.translate(tx, ty); ctx.rotate(ang);
       ctx.beginPath(); ctx.moveTo(a * 0.6, 0); ctx.lineTo(-a * 0.6, -a * 0.55); ctx.lineTo(-a * 0.6, a * 0.55); ctx.closePath();
-      ctx.fillStyle = h.color; ctx.globalAlpha = 0.8; ctx.fill();
+      ctx.fillStyle = h.color; ctx.globalAlpha = 0.95; ctx.fill();
       ctx.restore();
     }
     // 화이트홀: 하얗게 빛나는 원 + 바깥으로 도는 빛살
@@ -979,13 +1010,25 @@ function drawItems(t, g) {
     const bob = Math.sin(t / 260 + it.x * 1.7 + it.y) * cs * 0.06;
     const cx = ox + (it.x + 0.5) * cs, cy = oy + (it.y + 0.5) * cs + bob;
     const glow = 0.5 + 0.5 * Math.sin(t / 220 + it.x);
+    // 흰 배지 + 아이템 색 테두리 (바닥과 확실히 구분되게)
     ctx.save();
-    ctx.shadowColor = I.color; ctx.shadowBlur = cs * (0.3 + glow * 0.4);
-    ctx.beginPath(); ctx.arc(cx, cy, cs * 0.36, 0, Math.PI * 2);
-    ctx.fillStyle = I.color + '55'; ctx.fill();
+    ctx.shadowColor = I.color; ctx.shadowBlur = cs * (0.25 + glow * 0.35);
+    ctx.beginPath(); ctx.arc(cx, cy, cs * 0.38, 0, Math.PI * 2);
+    ctx.fillStyle = '#FFFFFF'; ctx.fill();
     ctx.restore();
-    emoji(I.icon, cx, cy + cs * 0.02, cs * 0.52);
+    ctx.beginPath(); ctx.arc(cx, cy, cs * 0.38, 0, Math.PI * 2);
+    ctx.fillStyle = I.color + '33'; ctx.fill();
+    ctx.lineWidth = Math.max(2, cs * 0.06); ctx.strokeStyle = I.color; ctx.stroke();
+    emoji(I.icon, cx, cy + cs * 0.02, cs * 0.46);
   }
+  // 먹은 자리에서 퍼지는 고리
+  for (const r of itemRings) {
+    const k = (t - r.t0) / 600;
+    if (k >= 1) continue;
+    ctx.beginPath(); ctx.arc(ox + (r.x + 0.5) * cs, oy + (r.y + 0.5) * cs, cs * (0.35 + easeOut(k) * 0.9), 0, Math.PI * 2);
+    ctx.strokeStyle = r.color; ctx.globalAlpha = 1 - k; ctx.lineWidth = cs * 0.1; ctx.stroke(); ctx.globalAlpha = 1;
+  }
+  itemRings = itemRings.filter(r => t - r.t0 < 600);
   // 부스트 중: 캐릭터 주위 주황 불꽃 고리
   if (char.boost) {
     const k = char.t0 ? clamp((t - char.t0) / (char.dur || MOVE_MS), 0, 1) : 1;
@@ -1088,8 +1131,11 @@ function drawCard(d, t) {
     ctx.lineWidth = 6; ctx.strokeStyle = p.color; ctx.globalAlpha = 0.3 + g * 0.7; ctx.stroke(); ctx.globalAlpha = 1;
   }
   if (bot) {
+    ctx.save();
+    ctx.shadowColor = 'rgba(43,45,66,.08)'; ctx.shadowBlur = 12; ctx.shadowOffsetY = 3;
     rr(x, y, b.w, b.h, r); ctx.fillStyle = '#FFFFFF'; ctx.fill();
-    ctx.lineWidth = 3; ctx.strokeStyle = p.color; ctx.stroke();
+    ctx.restore();
+    ctx.lineWidth = Math.max(2.5, L.u * 0.003); ctx.strokeStyle = p.color; ctx.stroke();
     if (cd.pulse > 0) { rr(x, y, b.w, b.h, r); ctx.fillStyle = p.color; ctx.globalAlpha = cd.pulse * 0.35; ctx.fill(); ctx.globalAlpha = 1; }
   } else if (joined) {
     ctx.save();
@@ -1102,8 +1148,10 @@ function drawCard(d, t) {
     ctx.setLineDash([8, 6]); ctx.lineWidth = 2; ctx.strokeStyle = p.color; ctx.stroke(); ctx.setLineDash([]);
   }
 
-  const fg = joined ? '#fff' : p.color;
-  const sub = joined ? 'rgba(255,255,255,.85)' : C.muted;
+  // 사람이 들어온 카드는 색 면 + 흰 글자, 나머지는 화살표만 방향 색이고 글자는 진하게
+  const fg = joined ? '#fff' : C.ink;
+  const arrowC = joined ? '#fff' : p.color;
+  const sub = joined ? 'rgba(255,255,255,.88)' : C.muted;
   let status = joined ? '참가 완료' : '빈 자리';
   if (state !== 'lobby' && joined && stats[d]) status = `${stats[d].moves}칸 이동`;
   if (bot) status = '🤖 도우미';
@@ -1113,16 +1161,36 @@ function drawCard(d, t) {
 
   if (b.vertical) {
     const s = b.w;
-    text(p.arrow, 0, y + b.h * 0.3, s * 0.42, fg, 800);
+    text(p.arrow, 0, y + b.h * 0.3, s * 0.42, arrowC, 800);
     text(p.label, 0, y + b.h * 0.6, s * 0.17, fg, 800);
     text(status, 0, y + b.h * 0.8, s * 0.12, sub, 600);
   } else {
     const s = b.h;
-    text(p.arrow, x + s * 0.55, 0, s * 0.6, fg, 800);
+    text(p.arrow, x + s * 0.55, 0, s * 0.6, arrowC, 800);
     text(p.label, x + s * 1.05, -s * 0.12, s * 0.3, fg, 800, 'left');
     text(status, x + s * 1.05, s * 0.22, s * 0.2, sub, 600, 'left');
   }
   ctx.restore();
+}
+
+// 흰 카드 (부드러운 그림자)
+function card(x, y, w, h, r, fill = C.panel, stroke = null) {
+  ctx.save();
+  ctx.shadowColor = 'rgba(43,45,66,.10)'; ctx.shadowBlur = L.u * 0.02; ctx.shadowOffsetY = L.u * 0.004;
+  rr(x, y, w, h, r); ctx.fillStyle = fill; ctx.fill();
+  ctx.restore();
+  if (stroke) { rr(x, y, w, h, r); ctx.lineWidth = Math.max(2, L.u * 0.003); ctx.strokeStyle = stroke; ctx.stroke(); }
+}
+// 숫자 폭을 고정해서 그리기 (타이머가 흔들리지 않게)
+function monoText(str, x, y, size, color, weight = 800, align = 'left') {
+  ctx.font = `${weight} ${size}px ${FONT}`;
+  const dw = ctx.measureText('0').width;
+  const ws = [...str].map(ch => /\d/.test(ch) ? dw : ctx.measureText(ch).width);
+  const total = ws.reduce((a, b) => a + b, 0);
+  let cx = align === 'right' ? x - total : align === 'center' ? x - total / 2 : x;
+  ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  [...str].forEach((ch, i) => { ctx.fillText(ch, cx + ws[i] / 2, y); cx += ws[i]; });
+  return total;
 }
 
 function drawHUD(t) {
@@ -1130,28 +1198,107 @@ function drawHUD(t) {
   const elapsed = state === 'play' ? stageElapsed(t) : state === 'clear' ? stageTimes[stageTimes.length - 1] : 0;
   const total = stageTimes.reduce((a, b) => a + b, 0) + (state === 'play' ? elapsed : 0);
   const itemRun = runMode === 'item';
-  text(`STAGE ${stageIdx + 1}/${STAGES.length} · ${STAGES[stageIdx].name}${itemRun ? ' · 🎁 아이템전' : ''}`, pad * 1.2, pad * 1.4, u * 0.022, C.muted, 700, 'left');
   const frozen = state === 'play' && isFrozen(t);
-  text((frozen ? '⏸ ' : '') + fmt(elapsed), pad * 1.2, pad * 1.4 + u * 0.045, u * 0.042, frozen ? ITEM.glass.color : C.ink, 800, 'left');
-  if (itemRun) {
-    let ly = pad * 1.4 + u * 0.1;
-    for (const k of ['star', 'glass', 'boost']) {
-      emoji(ITEM[k].icon, pad * 1.2 + u * 0.014, ly, u * 0.022);
-      text(ITEM[k].label, pad * 1.2 + u * 0.034, ly, u * 0.018, C.muted, 700, 'left');
-      ly += u * 0.032;
+  const ch = u * 0.115, cr = u * 0.022, ip = u * 0.022;
+  const timeSize = u * 0.046;
+
+  // 왼쪽 위: 스테이지 + 이번 판 기록
+  {
+    const head = `STAGE ${stageIdx + 1}/${STAGES.length} · ${STAGES[stageIdx].name}`;
+    ctx.font = `700 ${u * 0.02}px ${FONT}`;
+    const hw = ctx.measureText(head).width;
+    ctx.font = `800 ${timeSize}px ${FONT}`;
+    const tw = ctx.measureText((frozen ? '⏸ ' : '') + '00:00.00').width;
+    const cw = Math.max(u * 0.27, hw + ip * 2 + (itemRun ? u * 0.1 : 0), tw + ip * 2.4);
+    card(pad, pad, cw, ch, cr, frozen ? '#EEF4FF' : C.panel, frozen ? ITEM.glass.color : null);
+    text(head, pad + ip, pad + ch * 0.3, u * 0.02, C.muted, 700, 'left');
+    if (itemRun) {
+      const bx = pad + ip + hw + u * 0.012, bh = u * 0.03, bw = u * 0.085;
+      rr(bx, pad + ch * 0.3 - bh / 2, bw, bh, bh / 2); ctx.fillStyle = '#FFE8A3'; ctx.fill();
+      text('🎁 아이템전', bx + bw / 2, pad + ch * 0.3 + 1, u * 0.015, '#8A5A00', 800);
+    }
+    monoText((frozen ? '⏸ ' : '') + fmt(elapsed), pad + ip, pad + ch * 0.68, timeSize, frozen ? ITEM.glass.ink : C.ink, 800, 'left');
+    if (frozen) {
+      // 정지 남은 시간 막대
+      const f = freezes.find(([a, b]) => t >= a && t < b);
+      const left = (f[1] - t) / (f[1] - f[0]);
+      const bw = cw - ip * 2, bh = Math.max(4, u * 0.006), by = pad + ch - ip * 0.55;
+      rr(pad + ip, by, bw, bh, bh / 2); ctx.fillStyle = '#D5E3FF'; ctx.fill();
+      rr(pad + ip, by, Math.max(bh, bw * left), bh, bh / 2); ctx.fillStyle = ITEM.glass.color; ctx.fill();
     }
   }
-  text('누적', W - pad * 1.2, pad * 1.4, u * 0.022, C.muted, 700, 'right');
-  text(fmt(total), W - pad * 1.2, pad * 1.4 + u * 0.045, u * 0.042, frozen ? ITEM.glass.color : C.ink, 800, 'right');
+  // 오른쪽 위: 누적 기록
+  {
+    const cw = u * 0.24, x = W - pad - cw;
+    card(x, pad, cw, ch, cr, frozen ? '#EEF4FF' : C.panel, frozen ? ITEM.glass.color : null);
+    text('누적 기록', x + cw - ip, pad + ch * 0.3, u * 0.02, C.muted, 700, 'right');
+    monoText(fmt(total), x + cw - ip, pad + ch * 0.68, timeSize, frozen ? ITEM.glass.ink : C.ink, 800, 'right');
+  }
+  if (itemRun) drawLegend(t);
+  drawToast(t);
   // 시간 정지 중엔 화면 테두리를 파랗게
   if (frozen) { ctx.save(); ctx.strokeStyle = ITEM.glass.color; ctx.globalAlpha = 0.5 + 0.3 * Math.sin(t / 120); ctx.lineWidth = u * 0.012; ctx.strokeRect(0, 0, W, H); ctx.restore(); }
   if (!connected) text('서버 연결 끊김 - server.js가 켜져 있는지 확인하세요', W / 2, H - pad * 0.6, u * 0.018, '#E04848', 700);
 }
 
+// 아이템 아이콘: 흰 원 + 아이템 색 테두리
+function itemBadge(k, x, y, r) {
+  const I = ITEM[k];
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = '#FFFFFF'; ctx.fill();
+  ctx.fillStyle = I.color + '33'; ctx.fill();
+  ctx.lineWidth = Math.max(2, r * 0.14); ctx.strokeStyle = I.color; ctx.stroke();
+  emoji(I.icon, x, y + r * 0.04, r * 1.2);
+}
+
+// 아이템전 범례: 왼쪽 아래에 항상 표시 (먹으면 그 줄이 반짝)
+function drawLegend(t) {
+  const u = L.u, pad = L.pad;
+  const { x, y, w, h, ip, rowH, headH } = L.leg;
+  card(x, y, w, h, u * 0.022);
+  text('🎁 아이템', x + ip, y + ip * 0.4 + headH / 2, u * 0.022, C.ink, 800, 'left');
+  text('먹으면', x + w - ip, y + ip * 0.4 + headH / 2, u * 0.017, C.muted, 600, 'right');
+  ITEM_KEYS.forEach((k, i) => {
+    const I = ITEM[k];
+    const ry = y + ip * 0.4 + headH + rowH * (i + 0.5);
+    const fk = legendFlash[k] ? (t - legendFlash[k]) / 1500 : 1;
+    if (fk < 1) {
+      ctx.globalAlpha = (1 - fk) * 0.9;
+      rr(x + ip * 0.4, ry - rowH * 0.46, w - ip * 0.8, rowH * 0.92, rowH * 0.3); ctx.fillStyle = I.color + '44'; ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    itemBadge(k, x + ip + u * 0.02, ry, u * 0.02);
+    text(I.desc, x + ip + u * 0.055, ry + 1, u * 0.025, C.ink, 800, 'left');
+  });
+}
+
+// 아이템 먹었을 때 화면 위쪽에 크게 뜨는 알림
+function drawToast(t) {
+  if (!itemToast) return;
+  const k = (t - itemToast.t0) / 2000;
+  if (k >= 1) { itemToast = null; return; }
+  const u = L.u, I = ITEM[itemToast.type];
+  const msg = `${I.name}!  ${I.desc}`;
+  const size = Math.max(u * 0.026, Math.min(u * 0.036, mazeGeom().cs * 0.62));
+  ctx.font = `900 ${size}px ${FONT}`;
+  const r = size * 0.62;
+  const w = ctx.measureText(msg).width + r * 2 + size * 1.6, h = size * 1.9;
+  const g = mazeGeom();
+  const y = g.oy + g.cs * 0.5; // 미로 맨 윗줄(바깥 벽) 위에 띄워 통로를 덜 가리게
+  const pop = k < 0.12 ? easeOut(k / 0.12) : 1;
+  const sc = 0.6 + 0.4 * pop + (k < 0.2 ? Math.sin(k / 0.2 * Math.PI) * 0.06 : 0);
+  ctx.save();
+  ctx.globalAlpha = k > 0.8 ? 1 - (k - 0.8) / 0.2 : 1;
+  ctx.translate(W / 2, y); ctx.scale(sc, sc);
+  card(-w / 2, -h / 2, w, h, h / 2, C.panel, I.color);
+  itemBadge(itemToast.type, -w / 2 + size * 0.5 + r, 0, r);
+  text(msg, -w / 2 + size * 0.9 + r * 2, 1, size, I.ink, 900, 'left');
+  ctx.restore();
+}
+
 function panel(w, h) {
   const x = W / 2 - w / 2, y = H / 2 - h / 2;
   ctx.save();
-  ctx.shadowColor = 'rgba(43,45,66,.25)'; ctx.shadowBlur = 40; ctx.shadowOffsetY = 12;
+  ctx.shadowColor = 'rgba(43,45,66,.18)'; ctx.shadowBlur = L.u * 0.04; ctx.shadowOffsetY = L.u * 0.01;
   rr(x, y, w, h, L.u * 0.03); ctx.fillStyle = C.panel; ctx.fill();
   ctx.restore();
   return { x, y, w, h };
@@ -1201,7 +1348,17 @@ function drawLobby(t) {
     text('← 폰에서 모드를 바꿀 수 있어요', bx + bw + u * 0.015, by + bh / 2 + 1, u * 0.016, C.muted, 600, 'left');
   }
   y += u * 0.06;
-  text('네 명이 한 캐릭터를 함께 움직여요', tx, y, u * 0.024, C.muted, 600, 'left');
+  if (mode === 'item') {
+    // 아이템전: 부제 자리에 아이템 효과 3개
+    let cx = tx;
+    for (const k of ITEM_KEYS) {
+      itemBadge(k, cx + u * 0.016, y, u * 0.016);
+      ctx.font = `800 ${u * 0.02}px ${FONT}`;
+      const w = ctx.measureText(ITEM[k].short).width;
+      text(ITEM[k].short, cx + u * 0.04, y + 1, u * 0.02, C.ink, 800, 'left');
+      cx += u * 0.04 + w + u * 0.025;
+    }
+  } else text('네 명이 한 캐릭터를 함께 움직여요', tx, y, u * 0.024, C.muted, 600, 'left');
   y += u * 0.075;
   const steps = ['폰 카메라로 QR을 찍어요', '맡을 방향을 하나 골라요', '폰의 "지금 시작" 누르기 (4명이면 자동)'];
   steps.forEach((s, i) => {
@@ -1237,37 +1394,47 @@ let lobbyFullAt = 0;
 function drawCountdown(t) {
   const el = t - stateT;
   const u = L.u;
-  dim(0.45);
-  const b = panel(u * 0.42, u * 0.42);
-  text(`STAGE ${stageIdx + 1}`, W / 2, b.y + b.h * 0.17, u * 0.04, C.ink, 800);
-  text(STAGES[stageIdx].name, W / 2, b.y + b.h * 0.3, u * 0.028, C.muted, 700);
+  dim(0.55);
+  // 안내 줄: 기믹 + 아이템 (모두 패널 안에)
+  const rows = [];
+  if (maze.holes && maze.holes.length) rows.push({ icon: '🕳', str: '블랙홀에 들어가면 화이트홀로 나와요' });
+  if (maze.ice && maze.ice.size) rows.push({ icon: '🧊', str: '얼음 위에선 쭉 미끄러져요' });
+  const itemRun = runMode === 'item';
+  const rowH = u * 0.06;
+  const topH = u * 0.3;
+  const infoH = (rows.length ? rows.length * rowH + u * 0.02 : 0) + (itemRun ? u * 0.055 + ITEM_KEYS.length * rowH : 0);
+  const pw = infoH ? u * 0.62 : u * 0.42;
+  const b = panel(pw, topH + (infoH ? infoH + u * 0.045 : 0));
+  text(`STAGE ${stageIdx + 1} · ${STAGES[stageIdx].name}`, W / 2, b.y + u * 0.06, u * 0.036, C.ink, 800);
   const n = 3 - Math.floor(el / 800);
   const k = (el % 800) / 800;
   const label = n > 0 ? String(n) : '출발!';
   ctx.save();
   ctx.globalAlpha = n > 0 ? 1 - k * 0.6 : 1 - clamp((el - 2400) / 500, 0, 1);
-  text(label, W / 2, b.y + b.h * 0.64, u * (n > 0 ? 0.16 - k * 0.03 : 0.1), n > 0 ? C.ink : '#22A866', 900);
+  text(label, W / 2, b.y + u * 0.18, u * (n > 0 ? 0.15 - k * 0.03 : 0.09), n > 0 ? C.ink : '#1FA968', 900);
   ctx.restore();
-  {
-    const tips = [];
-    if (maze.holes && maze.holes.length) tips.push('🕳 블랙홀에 들어가면 ⚪ 화이트홀로 나와요');
-    if (maze.ice && maze.ice.size) tips.push('🧊 얼음 위에선 쭉 미끄러져요');
-    tips.forEach((tip, i) => {
-      const ty = b.y - u * 0.05 - (tips.length - 1 - i) * u * 0.055;
-      ctx.font = `800 ${u * 0.026}px ${FONT}`;
-      const tw = ctx.measureText(tip).width + u * 0.05, th = u * 0.046;
-      rr(W / 2 - tw / 2, ty - th / 2, tw, th, th / 2); ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.fill();
-      text(tip, W / 2, ty + 1, u * 0.026, C.ink, 800);
-    });
-  }
-  if (runMode === 'item') {
-    text('🎁 아이템전 — 길에서 살짝 벗어난 아이템, 들렀다 갈까?', W / 2, b.y + b.h + u * 0.04, u * 0.022, C.ink, 800);
-    const ks = ['star', 'glass', 'boost'];
-    ks.forEach((k, i) => {
-      const x = W / 2 + (i - 1) * u * 0.17;
-      emoji(ITEM[k].icon, x - u * 0.045, b.y + b.h + u * 0.09, u * 0.03);
-      text(ITEM[k].label, x - u * 0.022, b.y + b.h + u * 0.09, u * 0.022, C.muted, 800, 'left');
-    });
+  if (infoH) {
+    let y = b.y + topH;
+    ctx.fillStyle = C.line; ctx.fillRect(b.x + u * 0.04, y - u * 0.01, pw - u * 0.08, Math.max(1, u * 0.002));
+    const lx = b.x + u * 0.06;
+    y += u * 0.025;
+    for (const r of rows) {
+      y += rowH / 2;
+      emoji(r.icon, lx + u * 0.02, y, u * 0.032);
+      text(r.str, lx + u * 0.06, y + 1, u * 0.026, C.ink, 800, 'left');
+      y += rowH / 2;
+    }
+    if (itemRun) {
+      if (rows.length) y += u * 0.02;
+      text('🎁 길에서 살짝 벗어난 아이템, 들렀다 갈까?', lx, y + u * 0.025, u * 0.021, C.muted, 700, 'left');
+      y += u * 0.055;
+      for (const key of ITEM_KEYS) {
+        y += rowH / 2;
+        itemBadge(key, lx + u * 0.02, y, u * 0.021);
+        text(ITEM[key].desc, lx + u * 0.06, y + 1, u * 0.026, C.ink, 800, 'left');
+        y += rowH / 2;
+      }
+    }
   }
   if (n !== lastBeep) { lastBeep = n; sfx.beep(n <= 0); }
   if (el >= 2400 && state === 'countdown') {
