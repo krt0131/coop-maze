@@ -14,14 +14,12 @@
 
 ## 실행 방법 (Windows)
 
-1. [Node.js](https://nodejs.org/) 설치
-2. (선택) 같은 Wi-Fi 없이 접속하려면 Cloudflare 터널 프로그램을 `tools/cloudflared.exe`로 받기
-   ```
-   curl -L -o tools/cloudflared.exe https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe
-   ```
-   없으면 폰과 PC가 같은 Wi-Fi에 있을 때만 접속됩니다.
-3. `게임실행.bat` 더블클릭 → 게임 화면이 열리면 폰으로 QR 찍기
-4. 끝낼 때는 `게임종료.bat`
+1. 저장소를 받고 `게임실행.bat` 더블클릭 — 처음 한 번은 자동으로 준비해요
+   - Node.js가 없으면 winget으로 자동 설치 (안 되면 [nodejs.org](https://nodejs.org/) 안내)
+   - 같은 Wi-Fi 없이(LTE/5G) 접속하기 위한 Cloudflare 터널 프로그램을 `tools/cloudflared.exe`로 자동 다운로드 (공식 배포처, 무료)
+   - 다운로드가 안 되면 폰과 PC가 같은 Wi-Fi에 있을 때만 접속됩니다.
+2. 게임 화면이 열리면 폰으로 QR 찍기
+3. 끝낼 때는 `게임종료.bat`
 
 > GitHub Pages로는 실행되지 않습니다. 폰과 게임 화면을 연결하는 서버(`server.js`)가 PC에서 돌아가야 해요.
 
