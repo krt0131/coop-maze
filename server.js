@@ -18,6 +18,8 @@ const slots = { up: null, right: null, down: null, left: null }; // dir -> pid
 const lastSeen = new Map(); // pid -> time
 let phase = 'lobby'; // 게임 화면이 알려주는 현재 단계 (폰 표시용)
 let mode = 'normal'; // 'normal' 일반전 | 'item' 아이템전 — 폰(참가자)이 대기/결과 화면에서 고름
+let theme = 'classic'; // 화면 테마: 'classic' 크림 | 'neon' 네온 | 'cheong' 청사초롱 (폰·게임 화면 어디서든 바꿈)
+const THEMES = ['classic', 'neon', 'cheong'];
 const clients = new Set();
 // 콕 찌르기: 찔린 방향 → { from }. 폰은 /ping 응답으로 받아 감 (터널이 SSE를 버퍼링해서)
 const pokes = new Map();
@@ -82,7 +84,7 @@ function isLocalAdmin(req) {
 
 function send(res, obj) { res.write(`data: ${JSON.stringify(obj)}\n\n`); }
 function broadcast(obj) { for (const c of clients) send(c, obj); }
-function slotsMsg() { return { t: 'slots', slots, phase, mode }; }
+function slotsMsg() { return { t: 'slots', slots, phase, mode, theme }; }
 function slotOf(pid) { return DIRS.find(d => slots[d] === pid) || null; }
 
 function release(pid) {
@@ -139,6 +141,8 @@ const MIME = {
   '.css': 'text/css; charset=utf-8',
   '.json': 'application/json',
   '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
   '.svg': 'image/svg+xml',
 };
 
@@ -197,7 +201,7 @@ const server = http.createServer((req, res) => {
         const me = pid ? slotOf(pid) : null;
         let poke = null;
         if (me && pokes.has(me)) { poke = pokes.get(me); pokes.delete(me); if (Date.now() - poke.at > 6000) poke = null; }
-        return json(res, 200, { ok: true, dir: me, slots, phase, mode, poke: poke && { from: poke.from } });
+        return json(res, 200, { ok: true, dir: me, slots, phase, mode, theme, poke: poke && { from: poke.from } });
       }
 
       // 폰의 '지금 시작' 버튼 (빈 자리는 게임 화면의 도우미 봇이 맡음)
@@ -217,6 +221,15 @@ const server = http.createServer((req, res) => {
         if (phase !== 'lobby' && phase !== 'result') return json(res, 200, { ok: false, reason: 'playing', mode });
         if (mode !== m.mode) { mode = m.mode; console.log(`[모드] ${mode === 'item' ? '아이템전' : '일반전'}`); broadcast(slotsMsg()); }
         return json(res, 200, { ok: true, mode });
+      }
+
+      // 테마 바꾸기: 참가자 폰 또는 이 PC의 게임 화면(⚙ 설정·T키), 게임 중에도 가능
+      if (p === '/theme') {
+        if (pid) lastSeen.set(pid, Date.now());
+        if (!(pid && slotOf(pid)) && !isLocalAdmin(req)) return json(res, 200, { ok: false, reason: 'noslot', theme });
+        if (!THEMES.includes(m.theme)) return json(res, 400, { ok: false });
+        if (theme !== m.theme) { theme = m.theme; console.log(`[테마] ${{ classic: '크림', neon: '네온', cheong: '청사초롱' }[theme]}`); broadcast(slotsMsg()); }
+        return json(res, 200, { ok: true, theme });
       }
 
       // 콕 찌르기: 다른 방향 담당 폰을 진동시키고 게임 화면 카드도 흔들기

@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#2B2D42">
 <title>미로 조작기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   :root { --bg:#F4F1EA; --ink:#2B2D42; --muted:#8A8C9E; --c:#2B2D42; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; -webkit-user-select:none; user-select:none; }
@@ -71,6 +74,76 @@
   .shake { animation:shake .3s; }
   @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-14px)} 40%{transform:translateX(12px)} 60%{transform:translateX(-8px)} 80%{transform:translateX(5px)} }
 
+  /* 테마 선택 */
+  #themeSel { display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700; }
+  #themeSel span { opacity:.85; margin-right:2px; }
+  #themeSel button { border:0; background:rgba(0,0,0,.18); color:#fff; font:inherit; font-size:13px; font-weight:800; padding:7px 12px; border-radius:99px; }
+  #themeSel button.sel { background:#fff; color:var(--c); }
+
+  /* ---------- 네온 테마 ---------- */
+  html[data-theme="neon"] { --bg:#020711; --ink:#EAF2FF; --muted:#8FA3C8; --cyan:#58D5F2; --violet:#A77BFF; }
+  html[data-theme="neon"] body { background:radial-gradient(120% 70% at 50% -10%, #0B2342 0%, #06101F 55%, #020711 100%);
+    font-family:"Chakra Petch","IBM Plex Sans KR","Pretendard","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif; }
+  html[data-theme="neon"] #choose::before { content:"SCAN · PICK · MOVE"; display:block; font-size:11px; font-weight:700; letter-spacing:.3em; color:var(--cyan); margin-bottom:10px; }
+  html[data-theme="neon"] .pick { background:linear-gradient(#141D40, #0B1330) !important; color:var(--pc); border:1.5px solid var(--pc);
+    border-radius:0; clip-path:polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+    box-shadow:inset 0 0 18px color-mix(in srgb, var(--pc) 35%, transparent); text-shadow:0 0 10px var(--pc); }
+  html[data-theme="neon"] .pick:active { transform:translateY(2px); }
+  html[data-theme="neon"] .pick.taken { background:#0A0F22 !important; color:#4A5578; border-color:#2A3358; box-shadow:none; text-shadow:none; }
+  html[data-theme="neon"] .p-up { --pc:#FF8FB7; } html[data-theme="neon"] .p-left { --pc:#A77BFF; }
+  html[data-theme="neon"] .p-right { --pc:#F2B33A; } html[data-theme="neon"] .p-down { --pc:#4CF0C4; }
+  html[data-theme="neon"] #pad { background:radial-gradient(90% 60% at 50% 45%, color-mix(in srgb, var(--c) 32%, #06101F) 0%, #020711 75%); color:#EAF2FF; }
+  html[data-theme="neon"] #bigArrow { color:var(--c); text-shadow:0 0 18px var(--c), 0 0 42px var(--c); }
+  html[data-theme="neon"] #pad .status { background:rgba(11,19,48,.85); border:1px solid var(--c); }
+  html[data-theme="neon"] #pad .role { color:var(--c); letter-spacing:.12em; font-weight:700; }
+  html[data-theme="neon"] #startBtn { background:linear-gradient(#141D40, #0B1330); color:#EAF2FF; border:1.5px solid var(--cyan); border-radius:0;
+    clip-path:polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px); box-shadow:inset 0 0 16px rgba(88,213,242,.3); }
+  html[data-theme="neon"] #startBtn small { color:var(--muted); }
+  html[data-theme="neon"] #modeSel, html[data-theme="neon"] #themeSel button { background:rgba(11,19,48,.85); }
+  html[data-theme="neon"] #modeSel { border:1px solid rgba(127,140,255,.4); border-radius:4px; }
+  html[data-theme="neon"] #modeSel button { border-radius:2px; }
+  html[data-theme="neon"] #modeSel button.sel, html[data-theme="neon"] #themeSel button.sel { background:var(--c); color:#020711; box-shadow:0 0 12px var(--c); }
+  html[data-theme="neon"] #themeSel button { border:1px solid rgba(127,140,255,.4); }
+  html[data-theme="neon"] .pk { background:#0B1330; border:1.5px solid currentColor; box-shadow:0 0 10px currentColor; }
+  html[data-theme="neon"] #motionBtn { background:#0B1330; color:#EAF2FF; border:1.5px solid var(--c); }
+  html[data-theme="neon"] #change { background:rgba(11,19,48,.85); border:1px solid rgba(127,140,255,.4); }
+  html[data-theme="neon"] #meter { background:rgba(11,19,48,.9); border:1px solid rgba(127,140,255,.35); }
+  html[data-theme="neon"] #meterFill { background:var(--c); box-shadow:0 0 10px var(--c); }
+  html[data-theme="neon"] #poked { background:rgba(2,7,17,.94); color:#EAF2FF; }
+  html[data-theme="neon"] #offline { background:#0B1330; border:1px solid #FF6B7A; }
+
+  /* ---------- 청사초롱 테마 (별 밤바다 + 옻칠 + 샴페인 골드 자개) ---------- */
+  html[data-theme="cheong"] { --bg:#0A0E2A; --ink:#FFF1D2; --muted:#CDB892; --gold:#E2BC7C; }
+  html[data-theme="cheong"] body { background:#0A0E2A url(themes/cheong/bg.jpg) center/cover no-repeat;
+    font-family:"Gowun Batang","IBM Plex Sans KR","Pretendard","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",serif; }
+  html[data-theme="cheong"] body::after { content:""; position:fixed; inset:8px; border:1.5px solid var(--gold); border-radius:10px; pointer-events:none;
+    box-shadow:0 0 0 8px #0B0A10, 0 0 12px rgba(240,200,130,.4), inset 0 0 12px rgba(240,200,130,.18); z-index:30; }
+  html[data-theme="cheong"] #choose { background:rgba(6,8,24,.35); }
+  html[data-theme="cheong"] #choose::before { content:"수궁야행 · 청사초롱"; display:block; font-size:13px; letter-spacing:.3em; color:var(--gold); margin-bottom:10px; }
+  html[data-theme="cheong"] #choose h1 { color:#FFF1D2; text-shadow:0 0 14px rgba(240,200,130,.45); }
+  html[data-theme="cheong"] .pick { background:linear-gradient(#17151F, #07070B) !important; color:var(--pc); border:1.5px solid var(--gold); border-radius:12px;
+    box-shadow:0 0 14px color-mix(in srgb, var(--pc) 40%, transparent), inset 0 0 22px color-mix(in srgb, var(--pc) 30%, transparent); text-shadow:0 0 10px var(--pc); }
+  html[data-theme="cheong"] .pick:active { transform:translateY(2px); }
+  html[data-theme="cheong"] .ar, html[data-theme="cheong"] #bigArrow, html[data-theme="cheong"] .pk { font-family:"Pretendard","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif; font-weight:900; }
+  html[data-theme="cheong"] .pick.taken { background:#0B0A10 !important; color:#5A5246; border-color:#3A3328; box-shadow:none; text-shadow:none; }
+  html[data-theme="cheong"] .p-up { --pc:#FF6A5C; } html[data-theme="cheong"] .p-left { --pc:#F27AA8; }
+  html[data-theme="cheong"] .p-right { --pc:#F7C843; } html[data-theme="cheong"] .p-down { --pc:#5FB0F2; }
+  html[data-theme="cheong"] #pad { background:radial-gradient(80% 50% at 50% 42%, color-mix(in srgb, var(--c) 38%, transparent) 0%, rgba(6,8,24,.55) 70%); color:#FFF1D2; }
+  html[data-theme="cheong"] #bigArrow { color:var(--c); text-shadow:0 0 22px var(--c), 0 0 50px color-mix(in srgb, var(--c) 60%, transparent); }
+  html[data-theme="cheong"] #pad .status { background:rgba(7,7,11,.85); border:1px solid var(--gold); }
+  html[data-theme="cheong"] #pad .role { color:#F3D6B8; letter-spacing:.12em; font-weight:700; }
+  html[data-theme="cheong"] #startBtn { background:linear-gradient(#17151F, #07070B); color:#FFF1D2; border:1.5px solid var(--gold); border-radius:12px;
+    box-shadow:0 0 14px rgba(240,200,130,.35), inset 0 0 0 4px #07070B, inset 0 0 0 5px rgba(226,188,124,.5); }
+  html[data-theme="cheong"] #startBtn small { color:var(--muted); }
+  html[data-theme="cheong"] #modeSel, html[data-theme="cheong"] #themeSel button, html[data-theme="cheong"] #change { background:rgba(7,7,11,.85); border:1px solid rgba(226,188,124,.5); }
+  html[data-theme="cheong"] #modeSel button.sel, html[data-theme="cheong"] #themeSel button.sel { background:var(--gold); color:#1A1206; }
+  html[data-theme="cheong"] .pk { background:#0B0A10; border:1.5px solid currentColor; box-shadow:0 0 10px currentColor; }
+  html[data-theme="cheong"] #motionBtn { background:#0B0A10; color:#FFF1D2; border:1.5px solid var(--gold); }
+  html[data-theme="cheong"] #meter { background:rgba(7,7,11,.9); border:1px solid rgba(226,188,124,.45); }
+  html[data-theme="cheong"] #meterFill { background:var(--c); box-shadow:0 0 10px var(--c); }
+  html[data-theme="cheong"] #poked { background:rgba(7,7,11,.94); color:#FFF1D2; }
+  html[data-theme="cheong"] #offline { background:#0B0A10; border:1px solid #FF7A6B; }
+
   #offline { position:fixed; left:12px; right:12px; top:12px; background:#2B2D42; color:#fff; padding:10px 14px; border-radius:12px;
     font-size:14px; text-align:center; display:none; z-index:10; }
 </style>
@@ -107,6 +180,7 @@
     <button id="motionBtn">📳 흔들기 켜기</button>
     <div id="modeSel"><button data-mode="normal">일반전</button><button data-mode="item">🎁 아이템전</button></div>
     <div id="modeHint"></div>
+    <div id="themeSel"><span>테마</span><button data-theme="classic">크림</button><button data-theme="neon">네온</button><button data-theme="cheong">청사초롱</button></div>
     <button id="startBtn">지금 시작<small id="startSub"></small></button>
     <button id="change">방향 바꾸기</button>
   </div>
@@ -138,6 +212,19 @@ let myDir = null;
 let slots = { up:null, right:null, down:null, left:null };
 let phase = 'lobby';
 let mode = 'normal'; // 'normal' 일반전 | 'item' 아이템전
+let theme = 'classic'; // 'classic' 크림 | 'neon' 네온 | 'cheong' 청사초롱 — 게임 화면·다른 폰과 함께 바뀜
+const THEME_COLOR = {
+  neon:   { up:'#FF8FB7', right:'#F2B33A', down:'#4CF0C4', left:'#A77BFF' },
+  cheong: { up:'#FF6A5C', right:'#F7C843', down:'#5FB0F2', left:'#F27AA8' }, // 초롱 빛깔
+};
+const THEME_BAR = { classic:'#2B2D42', neon:'#020711', cheong:'#0A0E2A' };
+const dirColor = d => (THEME_COLOR[theme] || {})[d] || INFO[d].color;
+function applyTheme(t) {
+  theme = THEME_BAR[t] ? t : 'classic';
+  document.documentElement.dataset.theme = theme;
+  if (myDir) renderPad();
+  else document.querySelector('meta[name=theme-color]').content = THEME_BAR[theme];
+}
 
 const $ = id => document.getElementById(id);
 
@@ -163,8 +250,9 @@ function renderChoose() {
 
 function renderPad() {
   const i = INFO[myDir];
-  document.documentElement.style.setProperty('--c', i.color);
-  document.querySelector('meta[name=theme-color]').content = i.color;
+  document.documentElement.style.setProperty('--c', dirColor(myDir));
+  document.querySelector('meta[name=theme-color]').content = theme === 'classic' ? i.color : THEME_BAR[theme];
+  for (const b of $('themeSel').querySelectorAll('button')) b.classList.toggle('sel', b.dataset.theme === theme);
   $('role').textContent = `나는 ${i.label} 담당`;
   $('bigArrow').textContent = i.arrow;
   $('guide').textContent = motionSeen ? '폰을 흔들면 한 칸 이동!' : `화면을 ${i.to} 쓱 밀어요`;
@@ -182,7 +270,7 @@ function renderPad() {
   $('modeSel').classList.toggle('on', canMode);
   for (const b of $('modeSel').children) b.classList.toggle('sel', b.dataset.mode === mode);
   $('modeHint').textContent = canMode
-    ? (mode === 'item' ? '⭐ -4초 · ⏳ 2초 정지 · 🚀 5칸 부스트 — 들렀다 갈까?' : '')
+    ? (mode === 'item' ? '⭐ 기록 -4초 · ⏳ 타이머 2초 정지 · 🚀 5칸 질주' : '')
     : (mode === 'item' ? '🎁 아이템전 진행 중' : '');
 }
 
@@ -196,18 +284,28 @@ for (const b of $('modeSel').children) {
   });
 }
 
+for (const b of $('themeSel').querySelectorAll('button')) {
+  b.addEventListener('click', async () => {
+    if (b.dataset.theme === theme) return;
+    buzz(15);
+    applyTheme(b.dataset.theme); // 바로 반영, 서버 응답으로 확정
+    const r = await post('/theme', { pid, theme: b.dataset.theme });
+    if (r.theme) applyTheme(r.theme);
+  });
+}
+
 // ---------- 콕 찌르기: 다른 방향 담당에게 "네 차례야!" ----------
 function renderPoke() {
   const row = $('pokeRow');
   const others = ['up', 'right', 'down', 'left'].filter(d => d !== myDir);
-  const sig = others.map(d => d + (slots[d] ? 1 : 0)).join();
+  const sig = theme + others.map(d => d + (slots[d] ? 1 : 0)).join();
   if (row.dataset.sig === sig) return;
   row.dataset.sig = sig;
   row.querySelectorAll('.pk').forEach(b => b.remove());
   for (const d of others) {
     const b = document.createElement('button');
     b.className = 'pk' + (slots[d] ? '' : ' bot');
-    b.textContent = INFO[d].arrow; b.style.color = INFO[d].color;
+    b.textContent = INFO[d].arrow; b.style.color = dirColor(d);
     b.addEventListener('click', async () => {
       buzz(15);
       b.classList.remove('hit'); void b.offsetWidth; b.classList.add('hit');
@@ -223,7 +321,7 @@ function showPoked(from) {
   if (!i) return;
   buzz([120, 80, 120, 80, 160]);
   const el = $('poked');
-  el.innerHTML = `<div style="font-size:64px;color:${i.color}">${i.arrow}</div>콕! 네 차례야!<small>${i.label} 담당이 찔렀어요</small>`;
+  el.innerHTML = `<div style="font-size:64px;color:${dirColor(from)}">${i.arrow}</div>콕! 네 차례야!<small>${i.label} 담당이 찔렀어요</small>`;
   el.classList.remove('on'); void el.offsetWidth; el.classList.add('on');
   clearTimeout(pokedTimer);
   pokedTimer = setTimeout(() => el.classList.remove('on'), 1600);
@@ -378,6 +476,7 @@ function applyState(r) {
   slots = r.slots || slots;
   phase = r.phase || phase;
   mode = r.mode || mode;
+  if (r.theme && r.theme !== theme) applyTheme(r.theme);
   if (r.poke && r.poke.from) showPoked(r.poke.from);
   const mine = r.dir || null;
   if (mine !== myDir) setMine(mine);

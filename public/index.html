@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>4인 협동 미로 탈출</title>
+<!-- 네온 테마 글꼴 (인터넷이 없으면 기본 글꼴로 표시됨) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   :root { --bg:#F4F1EA; --ink:#2B2D42; --panel:#FFFFFF; --muted:#8A8C9E; }
   * { box-sizing:border-box; }
@@ -25,6 +29,21 @@
   #gear { position:fixed; right:14px; bottom:14px; width:40px; height:40px; border-radius:50%; border:0; background:rgba(43,45,66,.08);
     color:var(--ink); font-size:20px; cursor:pointer; opacity:.45; }
   #gear:hover { opacity:1; }
+  /* 네온 테마 */
+  html[data-theme="neon"] body { background:#020711; color:#EAF2FF; }
+  html[data-theme="neon"] #settings { background:#0B1330; color:#EAF2FF; border:1px solid #58D5F2; box-shadow:0 0 24px rgba(88,213,242,.25);
+    font-family:"IBM Plex Sans KR","Pretendard","Noto Sans KR","Malgun Gothic",sans-serif; }
+  html[data-theme="neon"] #settings button { background:#141D40; color:#EAF2FF; border:1px solid #58D5F2; }
+  html[data-theme="neon"] #settings #closeSettings { background:#141D40; color:#EAF2FF; }
+  html[data-theme="neon"] #settings select { background:#141D40; color:#EAF2FF; border:1px solid #58D5F2; }
+  html[data-theme="neon"] #settings .hint { color:#8FA3C8; }
+  html[data-theme="cheong"] body { background:#0A0E2A; color:#FFF1D2; }
+  html[data-theme="cheong"] #settings { background:linear-gradient(#17151F,#07070B); color:#FFF1D2; border:1px solid #E2BC7C; box-shadow:0 0 24px rgba(240,200,130,.25);
+    font-family:"Gowun Batang","IBM Plex Sans KR","Pretendard","Noto Sans KR","Malgun Gothic",serif; }
+  html[data-theme="cheong"] #settings button, html[data-theme="cheong"] #settings select, html[data-theme="cheong"] #settings #closeSettings { background:#17151F; color:#FFF1D2; border:1px solid #E2BC7C; }
+  html[data-theme="cheong"] #settings .hint { color:#CDB892; }
+  html[data-theme="cheong"] #gear { background:rgba(240,200,130,.14); color:#F3D6B8; right:4.5vmin; bottom:4.5vmin; }
+  html[data-theme="neon"] #gear { background:rgba(88,213,242,.12); color:#58D5F2; }
 </style>
 </head>
 <body>
@@ -34,6 +53,8 @@
   <div class="head"><h3>설정</h3><button id="closeSettings" title="닫기 (Esc)" aria-label="닫기">✕</button></div>
   <label>QR 주소 <select id="ipSel"></select></label>
   <div class="hint">'인터넷'은 Wi-Fi 없이 LTE/5G로도 접속돼요 (PC에 인터넷 필요). 인터넷이 안 되는 곳에서는 '같은 Wi-Fi'를 고르고 폰을 PC와 같은 Wi-Fi에 연결하세요.</div>
+  <label>테마 <select id="themeSel"><option value="classic">크림 (기본)</option><option value="neon">네온 회로</option><option value="cheong">청사초롱</option></select></label>
+  <div class="hint">T 키로도 바꿀 수 있어요 · 참가자 폰에서 바꿔도 함께 바뀌어요</div>
   <label><input type="checkbox" id="sound" checked> 효과음</label>
   <div style="margin-top:8px">
     <button id="resetSlots">자리 배정 초기화 (R)</button>
